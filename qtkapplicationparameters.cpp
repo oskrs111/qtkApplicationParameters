@@ -2,9 +2,6 @@
 #include <QFile>
 #include <QDebug>
 #include <QDateTime>
-#ifndef VEJAM_NO_GUI
-#include <QMessageBox>
-#endif
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <qcoreapplication.h>
@@ -37,7 +34,7 @@ void QtKApplicationParameters::saveParam(QString groupName, QString paramName, Q
             pn.append(QString("%1").arg(order));
         }
         this->m_projectParameters.insert(pn,paramValue);
-        qDebug() << "saveParam(): " << this->m_projectParameters;
+        qDebug() << "saveParam() " << paramName << ":" << paramValue;
 }
 
 QString QtKApplicationParameters::loadParam(QString groupName, QString paramName, quint16 order)
@@ -57,7 +54,7 @@ QString QtKApplicationParameters::loadParam(QString groupName, QString paramName
     }
     d = this->m_projectParameters.value(pn,QVariant(QString("void")));
     r = d.toString();
-    //qDebug() << "loadParam(): " << pn << d;
+    qDebug() << "loadParam() " << paramName << ":" << r;
     return r;
 }
 
@@ -65,11 +62,18 @@ bool QtKApplicationParameters::fileLoad(bool showAlerts)
 {
         QString fileName = this->m_appName;
         fileName.append(AP_FILE_EXTENSION);
+#ifndef ANDROID_PLATFORM
 		fileName.prepend(qApp->applicationDirPath()+"/");
+#endif
 
         QFile f(fileName);
         QByteArray fd;
         f.open(QIODevice::ReadOnly);
+        if(f.error())
+        {
+              qDebug() << "fileLoad() Error: " << f.error() << ", " << f.errorString();
+        }
+
         fd = f.readAll();
         f.close();
 
@@ -83,15 +87,7 @@ bool QtKApplicationParameters::fileLoad(bool showAlerts)
         {
             if(showAlerts)
             {
-#ifdef          VEJAM_NO_GUI
                 qDebug() << "Error en el archivo de configuración: " << err.errorString().toLatin1().data() << "posición: " << err.offset;
-#else
-                QMessageBox msgBox;
-                QString msg;
-                msg.sprintf("Error en el archivo de configuración:\n\r[%s] - posición %d",err.errorString().toLatin1().data(),err.offset);
-                msgBox.setText(msg);
-                msgBox.exec();
-#endif
             }
 
             emit applicationParametersError();
@@ -120,7 +116,9 @@ bool QtKApplicationParameters::fileSave()
 	    QDateTime time =  QDateTime::currentDateTime();
         QString fileName = this->m_appName;
         fileName.append(AP_FILE_EXTENSION);
+#ifndef ANDROID_PLATFORM
 		fileName.prepend(qApp->applicationDirPath()+"/");
+#endif
 
         saveParam(QString("Common"), QString("LastSave"),time.toString("dd.MM.yyyy - hh:mm:ss.zzz"), 0);
 
@@ -128,11 +126,16 @@ bool QtKApplicationParameters::fileSave()
         QJsonObject obj;
         obj = QJsonObject::fromVariantMap(this->m_projectParameters);
 
-        qDebug() << "fileSave(): " << obj;
+        //qDebug() << "fileSave(): " << obj;
         doc.setObject(obj);
 
         QFile f(fileName);
         f.open(QIODevice::WriteOnly);
+        if(f.error())
+        {
+              qDebug() << "fileSave() Error: " << f.error() << ", " << f.errorString();
+        }
+
         f.write(doc.toJson());
         f.close();
 
